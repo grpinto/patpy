@@ -56,6 +56,43 @@ The repo uses **`uv`** for the patpy-mcp venv and **mamba/conda** for the patpy 
   ```
 - For the main patpy library, use mamba/conda envs as the user prefers; do **not** install patpy and patpy-mcp into the same env unless you have a reason to.
 
+## Cluster execution (Helmholtz Munich `hpc-build*` login nodes)
+
+This repo lives on a SLURM cluster. **Never run compute-heavy work on the login node** — it gets killed by the per-user resource limits and degrades the node for everyone else. "Compute-heavy" here means anything that loads a multi-100 MB AnnData, runs scanpy/PCA/UMAP, fits a deep model, or downloads many GB.
+
+Cheap and OK on the login node:
+
+- Reading source / running `pytest` inside `mcp/` (offline, <5 s).
+- Driving the patpy-mcp tools that only hit the CellxGene REST API (search, list, single small download).
+- Editing skills or running quick imports.
+
+Anything else → submit as a SLURM job. The standard wrapper for the breast-cancer pipeline lives at `outputs/breast_cancer_pipeline/run_pipeline.sbatch`; copy it as a template for new pipelines.
+
+Available QoS / partition combos for this repo's user account:
+
+| Workload | Partition | QoS | Typical resources |
+|---|---|---|---|
+| CPU pipeline (Pseudobulk, CellGroupComposition, MDS, scanpy PCA, evaluation) | `cpu_p` | `cpu_normal` | `--cpus-per-task=8 --mem=32G --time=01:00:00` |
+| Quick interactive CPU (≤12 h) | `interactive_cpu_p` | `interactive_cpu` | same as above; useful for `srun --pty bash` debugging |
+| GPU pipeline (PULSAR, MixMIL, MrVI, SCPoli) | `gpu_p` | `gpu_normal` | `--gres=gpu:a100_3g.20gb:1 --cpus-per-task=8 --mem=64G --time=02:00:00` |
+| Quick interactive GPU (≤12 h) | `interactive_gpu_p` | `interactive_gpu` | as above with shorter walltime |
+
+Submission and monitoring:
+
+```bash
+# submit
+sbatch outputs/breast_cancer_pipeline/run_pipeline.sbatch
+
+# watch
+squeue -u "$USER"
+tail -f outputs/breast_cancer_pipeline/slurm-<jobid>.out
+
+# cancel
+scancel <jobid>
+```
+
+The wrapper activates `.venv-patpy-run/`, sets `PATPY_MCP_CACHE`, exports `MPLBACKEND=agg`, and writes stdout/stderr to `outputs/breast_cancer_pipeline/slurm-%j.{out,err}` — adapt these for any new pipeline you build.
+
 ## Running tests
 
 Two separate suites; run them in their own roots:
