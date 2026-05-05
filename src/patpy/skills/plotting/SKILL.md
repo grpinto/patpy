@@ -41,6 +41,7 @@ fig = patpy.pl.embedding_covariate_heatmap(assoc, return_fig=True)
 
 - **Column-name contracts are strict.** `correlation_volcano` will `KeyError` if the input doesn't have the expected `correlation` / `-log_p_value_adj` / `gene_name` columns. If you computed correlations yourself, rename columns to match before calling.
 - **`embedding_covariate_heatmap` infers PC ordering from the column prefix.** It strips digits from the first label and sorts numerically. If your component labels don't follow `<prefix><int>` (e.g. `PC1`, `PC2`), the sort falls back to lexicographic — check the resulting axis before publishing.
+- **`pc_col` must match the component column produced upstream.** `embedding_covariate_heatmap` defaults `pc_col="PC"`, but `patpy.tl.associate_embedding_with_covariates` only auto-names the column `"PC"` when the `obsm_key` contains `"pca"` / `"pc"` (it falls back to `"Component"` otherwise — see [../evaluation/SKILL.md](../evaluation/SKILL.md)). Either pass `component_label="PC"` to the upstream call (recommended), or `pc_col="<actual column name>"` to the heatmap. Forgetting both produces `KeyError: 'PC'` from `pivot()`.
 - **`return_fig=False` calls `plt.show()`** and returns `None`. Pass `return_fig=True` to get the `Figure` for further customization or saving.
 - **`correlation_volcano` jitters labels stochastically.** Set `np.random.seed(...)` before calling if you need reproducible label positions.
 

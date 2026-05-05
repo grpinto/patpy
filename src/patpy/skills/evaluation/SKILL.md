@@ -77,6 +77,7 @@ result = patpy.tl.evaluate_prediction(y_true, y_pred, task="classification")
 - **`method="proportions"` requires `groups=` in `parameters`.** Pass cluster labels: `evaluate_representation(D, target, method="proportions", groups=clusters)`.
 - **Subset arguments are mutually exclusive** with full evaluation — `num_donors_subset` and `proportion_donors_subset` cannot both be set.
 - **Calibration of F1.** A score of 0 means *as good as random for the class balance*, not "always wrong". Don't interpret 0 as a chance prediction error; it's the expected value of `(F1 − 1/n_classes) / (1 − 1/n_classes)` for a uniform random predictor.
+- **`associate_embedding_with_covariates` auto-derives the component column name from `obsm_key`.** It uses `"PC"` only when `obsm_key` contains `"pca"` / `"pc"`, `"Factor"` for `"mofa"` / `"factor"`, and `"Component"` otherwise. Downstream, `patpy.pl.embedding_covariate_heatmap` defaults `pc_col="PC"`. If you're testing a non-PCA embedding (e.g. `"X_pseudobulk"`, `"X_composition"`, `"X_mrvi"`) and want the heatmap to work without an extra kwarg, pass `component_label="PC"` here.
 
 ## Related skills
 
