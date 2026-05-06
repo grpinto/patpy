@@ -48,23 +48,48 @@ export PYTHONUNBUFFERED=1
 NODE=$(hostname -s)
 LOGIN_HOST="${LOGIN_HOST:-${SLURM_SUBMIT_HOST:-$(hostname -f)}}"
 
+# See serve-cpu.sbatch for the rationale: this cluster firewalls direct
+# TCP from login -> compute on user ports, so we open a reverse SSH
+# tunnel back to the login node and have users target localhost there.
+REVERSE_TUNNEL=""
+if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+       -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+       -o ConnectTimeout=10 \
+       -fN -R "${MCP_PORT}:localhost:${MCP_PORT}" "${LOGIN_HOST}" \
+       2>/tmp/reverse-tunnel-${SLURM_JOB_ID}.log; then
+    REVERSE_TUNNEL="up"
+    echo "[serve] reverse tunnel: $(hostname -s):${MCP_PORT} -> ${LOGIN_HOST}:${MCP_PORT} (OK)"
+else
+    REVERSE_TUNNEL=""
+    echo "[serve] reverse tunnel to ${LOGIN_HOST} FAILED; see /tmp/reverse-tunnel-${SLURM_JOB_ID}.log"
+fi
+
+if [[ -n "${REVERSE_TUNNEL}" ]]; then
+    TUNNEL_TARGET="localhost"
+    TUNNEL_NOTE="(via reverse tunnel from ${NODE} -> ${LOGIN_HOST}:${MCP_PORT}, set up automatically)"
+else
+    TUNNEL_TARGET="${NODE}"
+    TUNNEL_NOTE="(direct compute-node tunnel; only works without inter-node firewall)"
+fi
+
 cat <<EOF
 ================================================================================
 patpy-analysis-mcp HTTP server is starting on a SLURM GPU node.
 
-  job_id      : ${SLURM_JOB_ID:-<not in slurm>}
-  partition   : ${SLURM_JOB_PARTITION:-?}
-  node        : ${NODE}
-  gpu         : ${CUDA_VISIBLE_DEVICES:-<unset>}
-  port        : ${MCP_PORT}
-  endpoint    : http://${NODE}:${MCP_PORT}/mcp
-  python      : $(which python)
-  cache       : $PATPY_MCP_CACHE
+  job_id          : ${SLURM_JOB_ID:-<not in slurm>}
+  partition       : ${SLURM_JOB_PARTITION:-?}
+  node            : ${NODE}
+  gpu             : ${CUDA_VISIBLE_DEVICES:-<unset>}
+  port            : ${MCP_PORT}
+  endpoint        : http://${NODE}:${MCP_PORT}/mcp
+  reverse tunnel  : ${REVERSE_TUNNEL:-not opened}  ${TUNNEL_NOTE}
+  python          : $(which python)
+  cache           : $PATPY_MCP_CACHE
 
 --- 1. Open an SSH tunnel from your laptop -------------------------------------
 On your laptop:
 
-    ssh -N -L ${MCP_PORT}:${NODE}:${MCP_PORT} ${USER}@${LOGIN_HOST}
+    ssh -N -L ${MCP_PORT}:${TUNNEL_TARGET}:${MCP_PORT} ${USER}@${LOGIN_HOST}
 
 --- 2. Point an MCP client at it ----------------------------------------------
 After the tunnel is up the server is reachable from your laptop at

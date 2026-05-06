@@ -53,24 +53,59 @@ NODE=$(hostname -s)
 # alias or a jumphost.
 LOGIN_HOST="${LOGIN_HOST:-${SLURM_SUBMIT_HOST:-$(hostname -f)}}"
 
+# This cluster firewalls direct TCP from login -> compute on user ports
+# (`No route to host` from the laptop's `ssh -L PORT:cpusrvNN:PORT login`).
+# Work around that by opening a *reverse* SSH tunnel from this compute
+# node back to the login node, exposing the same port on the login
+# node's loopback. The user's laptop tunnel then targets `localhost`
+# (i.e. the login node itself) instead of the compute-node hostname.
+#
+# Compute -> login over SSH is passwordless on this cluster, so this
+# happens silently. If it ever fails (no key forwarding, login changed
+# host key), the script still runs the server; the user can fall back
+# to the direct cpusrv tunnel and it'll work on clusters that don't
+# firewall inter-node TCP.
+REVERSE_TUNNEL=""
+if ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+       -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+       -o ConnectTimeout=10 \
+       -fN -R "${MCP_PORT}:localhost:${MCP_PORT}" "${LOGIN_HOST}" \
+       2>/tmp/reverse-tunnel-${SLURM_JOB_ID}.log; then
+    REVERSE_TUNNEL="up"
+    echo "[serve] reverse tunnel: $(hostname -s):${MCP_PORT} -> ${LOGIN_HOST}:${MCP_PORT} (OK)"
+else
+    REVERSE_TUNNEL=""
+    echo "[serve] reverse tunnel to ${LOGIN_HOST} FAILED; see /tmp/reverse-tunnel-${SLURM_JOB_ID}.log"
+    echo "[serve] users will need to tunnel directly to ${NODE} (only works without inter-node firewall)"
+fi
+
+if [[ -n "${REVERSE_TUNNEL}" ]]; then
+    TUNNEL_TARGET="localhost"
+    TUNNEL_NOTE="(via reverse tunnel from ${NODE} -> ${LOGIN_HOST}:${MCP_PORT}, set up automatically)"
+else
+    TUNNEL_TARGET="${NODE}"
+    TUNNEL_NOTE="(direct compute-node tunnel; only works on clusters that don't firewall login->compute TCP)"
+fi
+
 cat <<EOF
 ================================================================================
 patpy-analysis-mcp HTTP server is starting on a SLURM compute node.
 
-  job_id     : ${SLURM_JOB_ID:-<not in slurm>}
-  partition  : ${SLURM_JOB_PARTITION:-?}
-  node       : ${NODE}
-  port       : ${MCP_PORT}
-  endpoint   : http://${NODE}:${MCP_PORT}/mcp
-  python     : $(which python)
-  cache      : $PATPY_MCP_CACHE
+  job_id          : ${SLURM_JOB_ID:-<not in slurm>}
+  partition       : ${SLURM_JOB_PARTITION:-?}
+  node            : ${NODE}
+  port            : ${MCP_PORT}
+  endpoint        : http://${NODE}:${MCP_PORT}/mcp
+  reverse tunnel  : ${REVERSE_TUNNEL:-not opened}  ${TUNNEL_NOTE}
+  python          : $(which python)
+  cache           : $PATPY_MCP_CACHE
 
 --- 1. Open an SSH tunnel from your laptop -------------------------------------
-On your laptop:
+On your laptop, in a terminal you can leave open:
 
-    ssh -N -L ${MCP_PORT}:${NODE}:${MCP_PORT} ${USER}@${LOGIN_HOST}
+    ssh -N -L ${MCP_PORT}:${TUNNEL_TARGET}:${MCP_PORT} ${USER}@${LOGIN_HOST}
 
-(Keep that terminal open while you use the server.)
+(No output is the correct state. Ctrl-C to close it when you're done.)
 
 --- 2. Point an MCP client at it ----------------------------------------------
 After the tunnel is up, the server is reachable from your laptop at

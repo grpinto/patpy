@@ -35,15 +35,31 @@ The job logs spell out the exact tunnel command and `mcp.json` snippet
 each time, with the actual port that was assigned — there is no fixed
 port, so two server jobs from the same user can coexist.
 
-> Verified end-to-end on the Helmholtz Munich cluster (job 36073378,
-> `cpusrv32:39129`): server listens on `0.0.0.0:<port>`, MCP `initialize`
-> handshake succeeds, `tools/list` returns all six tools.
+> Verified end-to-end on the Helmholtz Munich cluster (jobs 36073378
+> and 36074741): server listens on `0.0.0.0:<port>`, MCP `initialize`
+> handshake succeeds, `tools/list` returns all six tools, both via the
+> reverse-tunnel path and from inside the compute node.
 
-> **Login-node firewall.** You can't `curl http://cpusrv32:<port>/mcp`
-> directly from `hpc-build*` — compute-node ports are firewalled off
-> from the login nodes. The SSH tunnel below is what makes the endpoint
-> reachable from your laptop; SLURM's `srun --overlap` is what we use
-> to verify it on the cluster itself.
+> **Login-node firewall — important.** This cluster blocks direct TCP
+> from the login nodes to compute-node user ports (`No route to host`)
+> AND blocks direct SSH login → compute (`Permission denied`). So the
+> obvious tunnel command `ssh -L PORT:cpusrvNN:PORT login_host` from
+> your laptop fails: it reaches the login node, but the login node
+> can't reach the compute node's port to forward traffic.
+>
+> The wrappers work around this by opening a **reverse SSH tunnel from
+> the compute node back to the login node** (compute → login SSH is
+> passwordless on this cluster) when the job starts. That binds the
+> same port on the login node's loopback interface, and the printed
+> tunnel command targets `localhost` instead of the compute hostname:
+>
+> ```
+> ssh -N -L <PORT>:localhost:<PORT> <user>@<login-host>
+> ```
+>
+> If your cluster *doesn't* firewall login → compute, the reverse
+> tunnel still works but is unnecessary; the wrappers fall back to the
+> direct path automatically when the reverse tunnel can't be opened.
 
 ## What the wrapper actually does
 
