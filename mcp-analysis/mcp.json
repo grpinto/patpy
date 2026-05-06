@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "lueckenlab/patpy-analysis-mcp": {
+      "command": "uvx",
+      "args": ["patpy-analysis-mcp"]
+    }
+  }
+}

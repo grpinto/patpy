@@ -1,0 +1,61 @@
+"@context": https://schema.org
+"@type": SoftwareApplication
+"@id": https://github.com/lueckenlab/patpy
+
+additionalType:
+  - https://schema.org/SoftwareSourceCode
+
+identifier: lueckenlab/patpy-analysis-mcp
+
+name: patpy-analysis-mcp
+
+description: >
+  MCP server for sample-level single-cell analysis pipelines. Wraps the
+  patpy library (preprocessing, sample-representation methods, embedding-
+  covariate association, plotting) as MCP tools so an LLM agent can drive
+  end-to-end donor-level analysis on a downloaded AnnData. Designed to
+  chain after lueckenlab/patpy-mcp (dataset discovery) and biocontext-ai/
+  anndata-mcp (AnnData inspection).
+
+codeRepository: https://github.com/lueckenlab/patpy
+
+softwareHelp:
+  "@type": CreativeWork
+  url: https://patpy.readthedocs.io/en/latest/mcp-analysis.html
+  name: Documentation
+
+maintainer:
+  - "@type": Person
+    name: Vladimir Shitov
+    identifier: VladimirShitov
+    url: https://github.com/VladimirShitov
+
+license: https://spdx.org/licenses/BSD-3-Clause.html
+
+applicationCategory: HealthApplication
+
+keywords:
+  - bioinformatics
+  - single-cell
+  - patient-representation
+  - sample-representation
+  - pseudobulk
+  - cell-composition
+  - scverse
+  - patpy
+
+datePublished: "2026-05-06"
+
+operatingSystem:
+  - Cross-platform
+
+programmingLanguage:
+  - Python
+
+featureList:
+  - AnnData schema inspection (sample/cell-group key candidates, X_pca presence)
+  - patpy preprocessing (filter small samples, subsample, optional PCA)
+  - Sample-level representations (Pseudobulk, CellGroupComposition, RandomVector)
+  - Embedding-covariate association (ANOVA / Kruskal-Wallis)
+  - Embedding-covariate association heatmap
+  - End-to-end pipeline convenience tool

@@ -6,15 +6,17 @@ Read this file first. It tells you where things live, how to install / test, wha
 
 ## What this repository is
 
-Two related projects share this monorepo:
+Three related projects share this monorepo:
 
 1. **`patpy`** — a Python package for **sample-level** (donor / patient) representation learning from single-cell data. Operates on `anndata.AnnData` objects where each row is a single cell and each donor contributes many cells. Source: `src/patpy/`. Released to PyPI as [`patpy`](https://pypi.org/project/patpy/).
-2. **`patpy-mcp`** — a standalone Model Context Protocol server that exposes CellxGene Discover dataset search and download as MCP tools. Source: `mcp/`. Released to PyPI **independently** as [`patpy-mcp`](https://pypi.org/project/patpy-mcp/) — it does **not** depend on `patpy`. Built with the [BioContextAI cookiecutter](https://github.com/biocontext-ai/mcp-server-cookiecutter) and registered in the [BioContextAI Registry](https://biocontext.ai/registry).
+2. **`patpy-mcp`** — a standalone Model Context Protocol server that exposes CellxGene Discover dataset *discovery and download* as MCP tools. Source: `mcp/`. Released to PyPI **independently** as [`patpy-mcp`](https://pypi.org/project/patpy-mcp/) — it does **not** depend on `patpy`. Built with the [BioContextAI cookiecutter](https://github.com/biocontext-ai/mcp-server-cookiecutter) and registered in the [BioContextAI Registry](https://biocontext.ai/registry).
+3. **`patpy-analysis-mcp`** — a sister MCP server that exposes the patpy *analysis pipeline* (preprocessing, sample representations, embedding–covariate association, plotting) as MCP tools. Source: `mcp-analysis/`. Released to PyPI **independently** as [`patpy-analysis-mcp`](https://pypi.org/project/patpy-analysis-mcp/). Depends on `patpy` (heavy: pulls scanpy + matplotlib + scikit-learn). Same cookiecutter layout as `patpy-mcp` — chain the two: `patpy-mcp` produces an `.h5ad` path, hand it straight to `patpy-analysis-mcp`.
 
-Both ship from this single repo and can be released independently:
+All three ship from this single repo and can be released independently:
 
 - `patpy` — workflows `.github/workflows/test.yaml`, `build.yaml`, `release.yaml`; release tag `v*`.
 - `patpy-mcp` — workflows `.github/workflows/test-patpy-mcp.yaml`, `build-patpy-mcp.yaml`, `release-patpy-mcp.yaml`; release tag `patpy-mcp-v*`. All three only run when `mcp/**` changes (path-filtered).
+- `patpy-analysis-mcp` — workflows `.github/workflows/test-patpy-analysis-mcp.yaml`, `build-patpy-analysis-mcp.yaml`; release tag `patpy-analysis-mcp-v*` (release workflow TBD). Path-filtered on `mcp-analysis/**`.
 
 ## Repository layout
 
@@ -23,7 +25,7 @@ Both ship from this single repo and can be released independently:
 ├── src/patpy/                     # the patpy library
 │   ├── pp/  tl/  pl/  datasets/   # Public API: pp (preprocessing), tl (tools), pl (plots)
 │   └── skills/                    # SKILL.md files — see "Skills" below
-├── mcp/                           # the patpy-mcp standalone subproject
+├── mcp/                           # the patpy-mcp standalone subproject (DISCOVERY)
 │   ├── pyproject.toml             # patpy-mcp's own packaging (separate from the parent)
 │   ├── meta.yaml                  # BioContextAI Registry: Schema.org metadata
 │   ├── mcp.json                   # BioContextAI Registry: MCP client config snippet ({ mcpServers: { ... } })
@@ -35,14 +37,23 @@ Both ship from this single repo and can be released independently:
 │   │   ├── sources/cellxgene/     # REST client for CellxGene Discover
 │   │   └── tools/_<name>.py       # ONE tool per file, decorated with @mcp.tool
 │   └── tests/                     # patpy-mcp's own test suite
-├── tests/                         # patpy's test suite (unrelated to mcp/tests/)
+├── mcp-analysis/                  # the patpy-analysis-mcp standalone subproject (ANALYSIS)
+│   ├── pyproject.toml             # depends on patpy + scanpy + matplotlib + sklearn (heavy)
+│   ├── meta.yaml  mcp.json  Dockerfile   # same registry-aligned trio as mcp/
+│   ├── src/patpy_analysis_mcp/    # cookiecutter layout, mirroring mcp/
+│   │   ├── main.py                # click CLI entrypoint (run_app)
+│   │   ├── mcp.py                 # module-level FastMCP instance
+│   │   ├── _helpers.py            # path / obs helpers shared between tools
+│   │   └── tools/_<name>.py       # inspect_anndata, pp_preprocess, tl_*, pl_*, pipeline_run
+│   └── tests/                     # patpy-analysis-mcp's own test suite
+├── tests/                         # patpy's test suite (unrelated to mcp{,-analysis}/tests/)
 ├── docs/                          # Sphinx docs (incl. docs/mcp.md)
 ├── pyproject.toml                 # patpy package config
 ├── README.md                      # human-facing
 └── AGENTS.md                      # this file
 ```
 
-When in doubt: edits to anything under `src/patpy/` belong to the `patpy` package; anything under `mcp/` belongs to `patpy-mcp`. Their dependencies, tests, and release pipelines are intentionally separate.
+When in doubt: edits to anything under `src/patpy/` belong to the `patpy` package; anything under `mcp/` belongs to `patpy-mcp`; anything under `mcp-analysis/` belongs to `patpy-analysis-mcp`. The three projects' dependencies, tests, and release pipelines are intentionally separate. `patpy-analysis-mcp` is the only subproject that depends on `patpy` itself.
 
 ## Environments and tooling
 
@@ -53,6 +64,12 @@ The repo uses **`uv`** for the patpy-mcp venv and **mamba/conda** for the patpy 
   uv venv .venv-patpy-mcp --python 3.12
   source .venv-patpy-mcp/bin/activate
   uv pip install -e "./mcp[test]"
+  ```
+- The patpy-analysis-mcp subproject reuses the **patpy run venv** (`.venv-patpy-run/`) because it depends on `patpy`. Install with:
+  ```bash
+  source .venv-patpy-run/bin/activate
+  uv pip install --no-build-isolation -e ./mcp-analysis
+  uv pip install pytest pytest-asyncio    # for the test suite
   ```
 - For the main patpy library, use mamba/conda envs as the user prefers; do **not** install patpy and patpy-mcp into the same env unless you have a reason to.
 

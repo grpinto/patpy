@@ -13,6 +13,7 @@ __pycache__/
 # Distribution / packaging
 /dist/
 /mcp/dist/
+/mcp-analysis/dist/
 
 # Tests and coverage
 /data/

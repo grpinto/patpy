@@ -1,0 +1,45 @@
+name: Check Build patpy-analysis-mcp
+
+# Mirrors build-patpy-mcp.yaml but builds the patpy-analysis-mcp subproject
+# under ``mcp-analysis/``. Catches a broken ``mcp-analysis/pyproject.toml``
+# on PRs instead of at release-tag time.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp-analysis/**"
+      - ".github/workflows/build-patpy-analysis-mcp.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp-analysis/**"
+      - ".github/workflows/build-patpy-analysis-mcp.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash -euo pipefail {0}
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          filter: blob:none
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          cache-dependency-glob: mcp-analysis/pyproject.toml
+
+      - name: Build patpy-analysis-mcp package
+        working-directory: mcp-analysis
+        run: uv build
+
+      - name: Check patpy-analysis-mcp distributions
+        run: uvx twine check --strict mcp-analysis/dist/*.whl mcp-analysis/dist/*.tar.gz
