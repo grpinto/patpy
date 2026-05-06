@@ -110,25 +110,26 @@ scancel <jobid>
 
 The wrapper activates `.venv-patpy-run/`, sets `PATPY_MCP_CACHE`, exports `MPLBACKEND=agg`, and writes stdout/stderr to `outputs/breast_cancer_pipeline/slurm-%j.{out,err}` — adapt these for any new pipeline you build.
 
-### Long-running MCP server (HTTP + SSH tunnel)
+### Long-running MCP servers (HTTP + SSH tunnel)
 
-For an interactive session — driving `patpy-analysis-mcp` from Cursor / Claude Desktop / MCP Inspector / Open WebUI on your laptop — submit the server as a long-running HTTP service instead of a one-shot pipeline:
+For an interactive session — driving the patpy MCP servers from Cursor / Claude Desktop / MCP Inspector / Open WebUI on your laptop — submit the servers as long-running HTTP services instead of a one-shot pipeline. **Both** `patpy-mcp` (CellxGene discovery) and `patpy-analysis-mcp` (preprocessing / sample reps / plotting) are launched on the same compute node so they share `$PATPY_MCP_CACHE` — a dataset downloaded by `cellxgene_download_dataset` is immediately readable by the analysis tools without copying.
 
 ```bash
-# CPU server (4 CPUs, 16 GB, 12 h walltime; default)
+# CPU servers (4 CPUs, 16 GB, 12 h walltime; default — both servers, two ports)
 sbatch mcp-analysis/scripts/serve-cpu.sbatch
 
-# GPU server (1× A100 3g.20gb slice; for future GPU-bound tools)
+# GPU servers (1× A100 3g.20gb slice; for future GPU-bound tools)
 sbatch mcp-analysis/scripts/serve-gpu.sbatch
 ```
 
 The wrapper:
 
-- Picks a free TCP port on the compute node (or honours `$MCP_PORT`).
-- Prints the assigned **node + port + ready-to-paste SSH-tunnel command + `mcp.json` snippet** to its stdout log.
-- Execs `patpy-analysis-mcp --transport http --host 0.0.0.0 --port <port>` in the foreground so SLURM keeps the job alive.
+- Picks two free TCP ports on the compute node (or honours `$MCP_ANALYSIS_PORT` / `$MCP_DISCOVERY_PORT`).
+- Opens one **reverse SSH tunnel per port** from the compute node back to the login node (this cluster firewalls login -> compute TCP, so the laptop's outbound tunnel must target `localhost` on the login node).
+- Prints the assigned **node + ports + ready-to-paste SSH-tunnel command + `mcp.json` snippet** (covering both servers) to its stdout log.
+- Starts `patpy-mcp` in the background and execs `patpy-analysis-mcp` in the foreground; SLURM keeps the job alive while either server is running, and a trap stops the discovery server when the foreground server exits.
 
-You then SSH-tunnel the port from your laptop and point any MCP client at `http://localhost:<port>/mcp`. End-to-end deployment + client config is documented in [`mcp-analysis/scripts/README.md`](mcp-analysis/scripts/README.md). Verified working on `cpu_p` (handshake + `tools/list` succeed via streamable-HTTP).
+You then open one SSH tunnel from your laptop forwarding both ports and point any MCP client at the two `http://localhost:<port>/mcp` URLs. End-to-end deployment + client config is documented in [`mcp-analysis/scripts/README.md`](mcp-analysis/scripts/README.md). Verified working on `cpu_p` (handshake + `tools/list` succeed for both servers via streamable HTTP).
 
 ## Running tests
 
