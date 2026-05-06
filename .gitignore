@@ -29,3 +29,20 @@ __pycache__/
 /outputs_run.log
 /.cellxgene-test-target.json
 /run_*.py
+
+# Pipeline artifacts written to the repo root by the MCP-driven runs.
+# These are regenerated on every run; nothing in `*.h5ad` is ever small
+# enough to belong in git, and the assoc_/heatmap_ files are per-run
+# outputs of `pl_embedding_covariate_heatmap`.
+*.h5ad
+/assoc_*.csv
+/heatmap_*.png
+/preprocessed.h5ad
+/pdata*.h5ad
+
+# SLURM job logs from the serve-cpu / serve-gpu wrappers.
+mcp-analysis/scripts/slurm-*.out
+mcp-analysis/scripts/slurm-*.err
+mcp-analysis/scripts/slurm-*.discovery.log
+outputs/breast_cancer_pipeline/slurm-*.out
+outputs/breast_cancer_pipeline/slurm-*.err
