@@ -89,7 +89,26 @@ patpy-analysis-mcp --transport http      # HTTP transport for remote clients
 patpy-analysis-mcp --version
 ```
 
-### 4. Run via Docker
+### 4. Run on a SLURM cluster (HTTP transport + SSH tunnel)
+
+For real datasets you don't want to run the server on a login node —
+it'll be killed by the resource limits and is too slow for a 100k-cell
+AnnData anyway. Submit the server as a long-running SLURM job that
+speaks HTTP, then SSH-tunnel the port back to your laptop and point
+any MCP client (Cursor / Claude Desktop / MCP Inspector / Open WebUI /
+mcp-cli) at `http://localhost:<port>/mcp`.
+
+The full recipe — including the SLURM wrappers, the tunnel command,
+and `mcp.json` snippets for each common client — lives in
+[`scripts/README.md`](scripts/README.md). One-line summary:
+
+```bash
+sbatch mcp-analysis/scripts/serve-cpu.sbatch
+# read the printed tunnel command from the job log, run it on your laptop,
+# point an MCP client at http://localhost:<port>/mcp
+```
+
+### 5. Run via Docker
 
 Build context is the repo root (so the shared top-level `LICENSE` is present):
 

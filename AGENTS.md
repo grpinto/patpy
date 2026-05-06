@@ -110,6 +110,26 @@ scancel <jobid>
 
 The wrapper activates `.venv-patpy-run/`, sets `PATPY_MCP_CACHE`, exports `MPLBACKEND=agg`, and writes stdout/stderr to `outputs/breast_cancer_pipeline/slurm-%j.{out,err}` — adapt these for any new pipeline you build.
 
+### Long-running MCP server (HTTP + SSH tunnel)
+
+For an interactive session — driving `patpy-analysis-mcp` from Cursor / Claude Desktop / MCP Inspector / Open WebUI on your laptop — submit the server as a long-running HTTP service instead of a one-shot pipeline:
+
+```bash
+# CPU server (4 CPUs, 16 GB, 12 h walltime; default)
+sbatch mcp-analysis/scripts/serve-cpu.sbatch
+
+# GPU server (1× A100 3g.20gb slice; for future GPU-bound tools)
+sbatch mcp-analysis/scripts/serve-gpu.sbatch
+```
+
+The wrapper:
+
+- Picks a free TCP port on the compute node (or honours `$MCP_PORT`).
+- Prints the assigned **node + port + ready-to-paste SSH-tunnel command + `mcp.json` snippet** to its stdout log.
+- Execs `patpy-analysis-mcp --transport http --host 0.0.0.0 --port <port>` in the foreground so SLURM keeps the job alive.
+
+You then SSH-tunnel the port from your laptop and point any MCP client at `http://localhost:<port>/mcp`. End-to-end deployment + client config is documented in [`mcp-analysis/scripts/README.md`](mcp-analysis/scripts/README.md). Verified working on `cpu_p` (handshake + `tools/list` succeed via streamable-HTTP).
+
 ## Running tests
 
 Two separate suites; run them in their own roots:
